@@ -21,6 +21,22 @@ to host registers and caches translated code.
 The Metal driver compiles AIR, Metal's shader IR, directly to NIR, Mesa's IR,
 and supports the Metal3 and Apple7 GPU families.
 
+## Intel graphics (experimental)
+
+Stella Intel Edition carries an experimental Intel Xe kernel/display-driver
+port. The first bring-up target is Intel Xe integrated graphics on Tiger Lake
+(11th-generation Core systems) and newer, subject to the exact GPU PCI device
+ID being present in xe's supported-device table. Build the UEFI image with
+`--features xe` in the `stela-boot` package to include the Xe port.
+
+**This is not yet full Intel GPU acceleration.** Intel ANV/Vulkan is not yet
+linked into the boot image, and the Intel Metal backend is not yet enabled for
+rendering. At this stage, Xe integration is experimental and may only provide
+display/driver bring-up. Older Intel graphics that require `i915` are not
+supported by this Xe path. Do not use this experimental build on a disk
+containing data you need; test from a spare USB device.
+
+
 ## Hardware requirements
 
 | Part | Requirement |
