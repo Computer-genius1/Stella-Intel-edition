@@ -128,8 +128,12 @@ pub enum Command {
         amdgpu: bool,
         /// Carry amdgpu and require RADV among the image's Mesa drivers:
         /// amdgpu binds the GPU and RADV backs the Metal device over it.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "xe")]
         radv: bool,
+        /// Carry Intel's xe kernel driver and require Mesa ANV in the image.
+        /// This is experimental and does not prove physical GPU operation.
+        #[arg(long, conflicts_with_all = ["amdgpu", "radv"])]
+        xe: bool,
     },
     /// Boot `stela.efi` with an ARM image in x86 QEMU.
     Run(Box<Run>),
@@ -503,10 +507,14 @@ pub fn run(command: Command) -> Result<ExitCode> {
             diagnostics,
             amdgpu,
             radv,
+            xe,
         } => {
             crate::gpu::fetch::fetch(false)?;
             crate::gpu::build_nvk(crate::gpu::default_jobs())?;
-            let gpu = if radv {
+            let gpu = if xe {
+                crate::gpu::require_vulkan_driver("intel")?;
+                Gpu::Xe
+            } else if radv {
                 crate::gpu::require_vulkan_driver("amd")?;
                 Gpu::Radv
             } else if amdgpu {
@@ -538,6 +546,8 @@ enum Gpu {
     Amdgpu,
     /// amdgpu with RADV, ACO and NIR among the image's Mesa drivers.
     Radv,
+    /// Intel's xe kernel driver with Mesa ANV, NIR and the Metal device.
+    Xe,
 }
 
 fn build_for_boot(release: bool, diagnostics: bool, gpu: Gpu) -> Result<PathBuf> {
@@ -586,6 +596,9 @@ fn build_with_diagnostics(release: bool, diagnostics: bool, gpu: Gpu) -> Result<
         }
         Gpu::Radv => {
             command.args(["--features", "radv"]);
+        }
+        Gpu::Xe => {
+            command.args(["--features", "xe"]);
         }
     }
     if release {
