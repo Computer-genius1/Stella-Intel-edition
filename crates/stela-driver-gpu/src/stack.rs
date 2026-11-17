@@ -182,10 +182,10 @@ const AMD_VULKAN: Option<crate::metal::native::Driver> = Some(crate::metal::amd:
 ))]
 const AMD_VULKAN: Option<crate::metal::native::Driver> = None;
 
-/// xe with the display code it shares with i915, and ANV's admission. Its
-/// Vulkan driver is not given yet, even in an image that holds ANV: ANV has
-/// run on no Intel GPU under Stela. Until then its GPU shows the frames
-/// another GPU draws, on the displays wired to it.
+/// xe with the display code it shares with i915, and ANV's admission.
+/// When the image build links ANV, Intel GPUs can use it as their Vulkan
+/// backend; otherwise xe remains display-only and shows frames another GPU
+/// draws on the displays wired to it.
 #[cfg(feature = "xe-port")]
 pub static INTEL: GpuStack = GpuStack {
     vendor: Vendor::Intel,
@@ -207,8 +207,21 @@ pub static INTEL: GpuStack = GpuStack {
     #[cfg(feature = "metal")]
     metal: Some(crate::metal::intel::ADMISSION),
     #[cfg(all(feature = "metal-linked", not(test)))]
-    vulkan: None,
+    vulkan: INTEL_VULKAN,
 };
+
+/// ANV, when the image build linked it. Its host-tool-heavy build is
+/// optional, so an image without ANV still boots xe as a display driver.
+#[cfg(all(feature = "xe-port", feature = "metal-linked", not(test), stela_vulkan_intel))]
+const INTEL_VULKAN: Option<crate::metal::native::Driver> = Some(crate::metal::intel::DRIVER);
+/// No ANV archive was linked into this image.
+#[cfg(all(
+    feature = "xe-port",
+    feature = "metal-linked",
+    not(test),
+    not(stela_vulkan_intel)
+))]
+const INTEL_VULKAN: Option<crate::metal::native::Driver> = None;
 
 /// Brings Linux up and registers every kernel driver built into the image,
 /// stopping at the first stage that fails. Linux then matches each presented
