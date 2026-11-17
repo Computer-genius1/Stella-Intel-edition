@@ -24,16 +24,18 @@ and supports the Metal3 and Apple7 GPU families.
 ## Intel graphics (experimental)
 
 Stella Intel Edition carries an experimental Intel Xe kernel/display-driver
-port. The first bring-up target is Intel Xe integrated graphics on Tiger Lake
-(11th-generation Core systems) and newer, subject to the exact GPU PCI device
-ID being present in xe's supported-device table. Build the UEFI image with
-`--features xe` in the `stela-boot` package to include the Xe port.
+port and an optional ANV Vulkan backend. The first bring-up target is Intel Xe
+integrated graphics on Tiger Lake (11th-generation Core systems) and newer,
+subject to the exact GPU PCI device ID being present in xe's supported-device
+table. Build the UEFI image with `--features xe` in the `stela-boot` package
+to include the Xe port and the shared GPU/Metal engine.
 
-**This is not yet full Intel GPU acceleration.** Intel ANV/Vulkan is not yet
-linked into the boot image, and the Intel Metal backend is not yet enabled for
-rendering. At this stage, Xe integration is experimental and may only provide
-display/driver bring-up. Older Intel graphics that require `i915` are not
-supported by this Xe path. Do not use this experimental build on a disk
+The image links ANV only when the Mesa build host has the required ANV
+toolchain; if ANV is unavailable, the Xe driver can still provide display
+bring-up, but the Intel GPU will not render Metal workloads. ANV's presence
+in the image is not proof of successful hardware acceleration: it still needs
+testing on physical Intel GPUs. Older Intel graphics that require `i915` are
+not supported by this Xe path. Do not use this experimental build on a disk
 containing data you need; test from a spare USB device.
 
 
