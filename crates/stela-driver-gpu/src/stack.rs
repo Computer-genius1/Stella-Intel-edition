@@ -558,6 +558,12 @@ mod tests {
         assert!(!intel.draws());
         #[cfg(feature = "metal")]
         assert!(intel.metal.is_some());
+        let mut tiger_lake_gt1 = adapter(0x8086);
+        tiger_lake_gt1.device = 0x9a78;
+        let intel_gt1 = GpuStack::select(&tiger_lake_gt1).unwrap();
+        assert!(core::ptr::eq(intel_gt1, &INTEL));
+        assert_eq!(intel_gt1.kernel.driver, "xe");
+        assert!((intel_gt1.kernel.integrated)(&tiger_lake_gt1));
         let unknown = adapter(0x8086);
         assert_eq!(
             GpuStack::select(&unknown).err(),
