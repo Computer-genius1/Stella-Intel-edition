@@ -1,0 +1,119 @@
+name: experimental-intel-xe
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intel-xe-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_BUILD_JOBS: "2"
+
+jobs:
+  intel-xe:
+    name: Build and host-test Intel Xe + ANV
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install LLVM 21 and graphics build dependencies
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            clang-21 lld-21 llvm-21 llvm-21-dev libclang-21-dev libclang-cpp21-dev \
+            glslang-tools ninja-build cmake pkg-config libdrm-dev git curl zstd
+          echo /usr/lib/llvm-21/bin >> "$GITHUB_PATH"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-intel-xe-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'crates/stela-boot/Cargo.lock') }}
+          restore-keys: cargo-intel-xe-
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install
+          rustc --version
+          clang --version | head -1
+          glslangValidator --version | head -1
+
+      - uses: actions/cache@v4
+        with:
+          path: .tools/gpu
+          key: gpu-tools-${{ runner.os }}-${{ hashFiles('xtask/src/gpu/toolchain.rs') }}
+
+      - uses: actions/cache@v4
+        id: spirv
+        with:
+          path: .tools/spirv
+          key: spirv-${{ runner.os }}-llvm21-${{ hashFiles('.github/spirv.sh') }}
+
+      - name: Build pinned SPIR-V host libraries
+        run: |
+          if [[ "${{ steps.spirv.outputs.cache-hit }}" != true ]]; then
+            bash .github/spirv.sh .tools/spirv
+          fi
+          echo "PKG_CONFIG_PATH=$PWD/.tools/spirv/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: target/gpu
+          key: intel-xe-gpu-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'xtask/src/gpu/**', 'crates/stela-driver-gpu/**', 'third_party/patches/**', 'third_party/*.sparse', '.github/spirv.sh') }}
+
+      - name: Fetch pinned upstream GPU sources
+        run: cargo xtask gpu fetch
+
+      - name: Run Intel ANV-on-Xe host integration test
+        run: cargo xtask gpu anv-test --jobs 2
+
+      - name: Test the Intel Xe driver crate
+        run: cargo test --locked -p stela-driver-gpu --features xe-port --lib
+
+      - name: Build experimental Intel Xe UEFI image
+        env:
+          STELA_RELEASE: "1"
+        run: |
+          cargo xtask boot build --xe --release
+          grep -Fx intel target/gpu/nvk/vulkan-drivers
+          efi=target/boot/x86_64-unknown-uefi/release/stela-deploy.efi
+          [[ -s "$efi" ]] || { echo "::error::UEFI image was not produced"; exit 1; }
+          [[ "$(head -c 2 "$efi")" == MZ ]] || { echo "::error::UEFI image is not a PE executable"; exit 1; }
+          mkdir -p dist
+          cp "$efi" dist/stela-intel-xe-experimental.efi
+          sha256sum dist/stela-intel-xe-experimental.efi | tee dist/SHA256SUMS
+          {
+            echo "### Experimental Intel Xe build"
+            echo
+            echo "- ANV linked: yes"
+            echo "- UEFI PE image: yes"
+            echo "- Physical GPU tested: no (requires target PC)"
+            echo
+            cat dist/SHA256SUMS
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stella-intel-xe-experimental
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
