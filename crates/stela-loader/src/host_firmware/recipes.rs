@@ -2768,6 +2768,15 @@ mod tests {
                 "i915/tgl_dmc_ver2_12.bin"
             ]
         );
+        // Tiger Lake GT1, used by 11th-generation Core i3 systems.
+        assert_eq!(
+            xe_files(0x9a78),
+            [
+                "i915/tgl_guc_70.bin",
+                "i915/tgl_huc.bin",
+                "i915/tgl_dmc_ver2_12.bin"
+            ]
+        );
         for device in [0x46a3, 0xa7a0, 0xa7a1] {
             assert_eq!(
                 xe_files(device),
