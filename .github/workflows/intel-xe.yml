@@ -101,14 +101,42 @@ jobs:
           efi=target/boot/x86_64-unknown-uefi/release/stela-deploy.efi
           [[ -s "$efi" ]] || { echo "::error::UEFI image was not produced"; exit 1; }
           [[ "$(head -c 2 "$efi")" == MZ ]] || { echo "::error::UEFI image is not a PE executable"; exit 1; }
-          mkdir -p dist
+          mkdir -p dist/usb/EFI/BOOT
           cp "$efi" dist/stela-intel-xe-experimental.efi
-          sha256sum dist/stela-intel-xe-experimental.efi | tee dist/SHA256SUMS
+          cp "$efi" dist/usb/EFI/BOOT/BOOTX64.EFI
+          cat > dist/usb/README-INSTALL.txt <<'EOF'
+          STELA INTEL XE — EXPERIMENTAL USB BOOT TEST
+
+          This is an experimental UEFI test image for supported Intel Xe GPUs.
+          It is NOT a macOS/Windows application and does not install an operating
+          system. Physical Intel GPU acceleration has not yet been verified.
+
+          USB preparation:
+          1. Back up the USB drive; use a spare USB drive.
+          2. Format it as FAT32 (GPT or MBR is fine for UEFI removable boot).
+          3. Copy the entire EFI folder from this package to the USB drive's root.
+          4. Safely eject the USB drive.
+          5. On the test PC, disable Secure Boot temporarily and choose the USB
+             device from the one-time UEFI boot menu.
+
+          This package only contains the UEFI boot application. It does not
+          erase or partition the PC's internal drive. Do not run disk or install
+          operations during this first hardware bring-up test.
+
+          If it fails to boot, record the exact error or photograph the screen.
+          A successful boot alone does not prove 3D acceleration.
+          EOF
+          (
+            cd dist/usb
+            zip -qr ../stela-intel-xe-usb-test.zip .
+          )
+          sha256sum dist/stela-intel-xe-experimental.efi dist/stela-intel-xe-usb-test.zip | tee dist/SHA256SUMS
           {
             echo "### Experimental Intel Xe build"
             echo
             echo "- ANV linked: yes"
             echo "- UEFI PE image: yes"
+            echo "- USB test ZIP: yes"
             echo "- Physical GPU tested: no (requires target PC)"
             echo
             cat dist/SHA256SUMS
