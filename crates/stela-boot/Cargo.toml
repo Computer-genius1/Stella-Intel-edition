@@ -35,9 +35,10 @@ native-profile = ["stela-soc/native-profile", "stela-engine/native-profile"]
 nvk = ["dep:stela-mesa", "stela-drivers/metal-linked"]
 # amdgpu in the image's Linux environment, for the AMD GPUs its table holds.
 amdgpu = ["stela-drivers/amdgpu-port", "stela-loader/amdgpu-port"]
-# Experimental Intel Xe kernel/display driver port. This does not yet provide
-# an Intel Vulkan/ANV driver or a working Intel Metal device.
-xe = ["stela-drivers/xe-port"]
+# Experimental Intel Xe graphics. Reuse the GPU/Metal engine and link ANV
+# when the Mesa build host has its required tools; without ANV, xe is
+# display-only. This also keeps the existing NVK stack available.
+xe = ["nvk", "stela-drivers/xe-port"]
 # amdgpu with RADV, NIR and ACO among the Mesa drivers `cargo xtask gpu nvk`
 # builds, which back the Metal device on the GPU amdgpu binds.
 radv = ["nvk", "amdgpu", "stela-drivers/radv"]
