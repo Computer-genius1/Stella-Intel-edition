@@ -147,6 +147,10 @@ jobs:
             cd dist/usb
             zip -qr ../stela-intel-xe-usb-test.zip .
           )
+          unzip -t dist/stela-intel-xe-usb-test.zip
+          unzip -Z1 dist/stela-intel-xe-usb-test.zip | grep -Fx 'EFI/BOOT/BOOTX64.EFI'
+          cmp "$efi" dist/stela-intel-xe-experimental.efi
+          unzip -p dist/stela-intel-xe-usb-test.zip EFI/BOOT/BOOTX64.EFI | cmp - "$efi"
           sha256sum dist/stela-intel-xe-experimental.efi dist/stela-intel-xe-usb-test.zip | tee dist/SHA256SUMS
           {
             echo "### Experimental Intel Xe build"
