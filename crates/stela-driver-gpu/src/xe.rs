@@ -280,7 +280,7 @@ mod tests {
     fn force_probe_is_the_tables_mark_of_each_platform() {
         // Tiger Lake, Alder Lake P, Raptor Lake P, DG1, Arc A-series and
         // Meteor Lake bind only by force probe.
-        for device in [0x9a49, 0x46a6, 0xa7a0, 0x4905, 0x56a0, 0x7d55] {
+        for device in [0x9a49, 0x9a78, 0x46a6, 0xa7a0, 0x4905, 0x56a0, 0x7d55] {
             assert!(force_probed(device), "{device:04x}");
         }
         // Lunar Lake and Battlemage bind without it; a device outside the
