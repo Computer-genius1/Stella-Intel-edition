@@ -86,6 +86,9 @@ jobs:
       - name: Run Intel ANV-on-Xe host integration test
         run: cargo xtask gpu anv-test --jobs 2
 
+      - name: Test Intel firmware selection, including Tiger Lake GT1
+        run: cargo test --locked -p stela-loader host_firmware::recipes::tests::an_intel_gpu_requires_the_files_xe_names_for_its_platform
+
       - name: Test the Intel Xe driver crate
         run: cargo test --locked -p stela-driver-gpu --features xe-port --lib
 
