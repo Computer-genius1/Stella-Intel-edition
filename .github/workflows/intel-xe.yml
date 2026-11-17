@@ -37,7 +37,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends \
             clang-21 lld-21 llvm-21 llvm-21-dev libclang-21-dev libclang-cpp21-dev libclang-rt-21-dev \
-            glslang-tools ninja-build cmake pkg-config libdrm-dev git curl zstd
+            glslang-tools ninja-build cmake pkg-config libdrm-dev git curl zstd zip
           echo /usr/lib/llvm-21/bin >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
