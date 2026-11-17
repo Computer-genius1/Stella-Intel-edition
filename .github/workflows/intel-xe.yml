@@ -37,7 +37,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends \
             clang-21 lld-21 llvm-21 llvm-21-dev libclang-21-dev libclang-cpp21-dev libclang-rt-21-dev \
-            glslang-tools ninja-build cmake pkg-config libdrm-dev git curl zstd zip
+            glslang-tools ninja-build cmake pkg-config libdrm-dev git curl zstd zip qemu-system-x86 ovmf
           echo /usr/lib/llvm-21/bin >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
@@ -101,6 +101,23 @@ jobs:
           efi=target/boot/x86_64-unknown-uefi/release/stela-deploy.efi
           [[ -s "$efi" ]] || { echo "::error::UEFI image was not produced"; exit 1; }
           [[ "$(head -c 2 "$efi")" == MZ ]] || { echo "::error::UEFI image is not a PE executable"; exit 1; }
+
+      - name: Boot the Intel Xe UEFI image in QEMU with OVMF
+        run: |
+          efi=target/boot/x86_64-unknown-uefi/release/stela-deploy.efi
+          cargo xtask boot run --image "$efi" --output target/intel-xe-qemu-boot --timeout 120
+          test -s target/intel-xe-qemu-boot/stdout.txt
+          test -s target/intel-xe-qemu-boot/stderr.txt
+          {
+            echo "### QEMU UEFI boot test"
+            echo
+            echo "- Intel Xe UEFI image launched through OVMF: yes"
+            echo "- This checks UEFI boot flow in emulation only; QEMU does not emulate the target Intel Xe GPU."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package and verify the experimental EFI USB files
+        run: |
+          efi=target/boot/x86_64-unknown-uefi/release/stela-deploy.efi
           mkdir -p dist/usb/EFI/BOOT
           cp "$efi" dist/stela-intel-xe-experimental.efi
           cp "$efi" dist/usb/EFI/BOOT/BOOTX64.EFI
