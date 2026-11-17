@@ -155,7 +155,7 @@ mod tests {
     fn the_table_is_xes_own_sorted_with_each_platforms_mask() {
         assert!(DEVICES.windows(2).all(|pair| pair[0].0 < pair[1].0));
         // Tiger Lake, Alder Lake P, Raptor Lake P and DG1: 39 bits.
-        for device in [0x9a49, 0x46a6, 0xa7a0, 0x4905] {
+        for device in [0x9a49, 0x9a78, 0x46a6, 0xa7a0, 0x4905] {
             assert_eq!(mask_bits(device), Some(39), "{device:04x}");
         }
         // Arc A-series, Meteor Lake, Lunar Lake and Battlemage: 46 bits.
