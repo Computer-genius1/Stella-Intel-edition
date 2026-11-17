@@ -212,7 +212,12 @@ pub static INTEL: GpuStack = GpuStack {
 
 /// ANV, when the image build linked it. Its host-tool-heavy build is
 /// optional, so an image without ANV still boots xe as a display driver.
-#[cfg(all(feature = "xe-port", feature = "metal-linked", not(test), stela_vulkan_intel))]
+#[cfg(all(
+    feature = "xe-port",
+    feature = "metal-linked",
+    not(test),
+    stela_vulkan_intel
+))]
 const INTEL_VULKAN: Option<crate::metal::native::Driver> = Some(crate::metal::intel::DRIVER);
 /// No ANV archive was linked into this image.
 #[cfg(all(
