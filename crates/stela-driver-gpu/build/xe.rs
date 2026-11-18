@@ -104,6 +104,14 @@ const OPEN: super::image::Open = &[
         "reopening a file without a VFS path",
         &["stela_linux_reopen_unowned_path"],
     ),
+    // The compatibility device model intentionally has no class/device
+    // child lists. These Linux APIs are explicit unsupported traps; allowing
+    // the imports here lets the image link, but calling either at runtime
+    // remains unsupported and must be covered by hardware bring-up tests.
+    (
+        "class/device child lookup (not implemented by Stela's device model)",
+        &["class_find_device", "device_find_child"],
+    ),
 ];
 
 /// The unit of xe's own `module_init`.
