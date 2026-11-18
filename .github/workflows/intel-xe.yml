@@ -186,3 +186,110 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 30
+
+  windows-updater:
+    name: Build Windows in-place USB updater
+    needs: intel-xe
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Put LLVM on PATH
+        shell: bash
+        run: |
+          echo 'C:/Program Files/LLVM/bin' >> "$GITHUB_PATH"
+          clang --version | head -1
+
+      - name: Install Rust and Windows target
+        shell: bash
+        run: |
+          rustup toolchain install
+          rustup target add x86_64-pc-windows-msvc
+          rustc --version
+          command -v clang
+          command -v llvm-lib
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stella-intel-xe-experimental
+          path: dist
+
+      - name: Build Windows updater with the Intel Xe EFI image embedded
+        shell: bash
+        env:
+          STELA_EFI: ${{ github.workspace }}/dist/stela-intel-xe-experimental.efi
+        run: |
+          test -s "$STELA_EFI"
+          cargo build --release --locked -p stela-cli --target x86_64-pc-windows-msvc
+          exe=target/x86_64-pc-windows-msvc/release/stela.exe
+          test -s "$exe"
+          "$exe" --version
+          python - <<'PY'
+          from pathlib import Path
+          exe = Path("target/x86_64-pc-windows-msvc/release/stela.exe").read_bytes()
+          efi = Path("dist/stela-intel-xe-experimental.efi").read_bytes()
+          assert efi in exe, "Windows updater does not contain the Intel Xe EFI image"
+          print(f"Verified embedded Intel Xe EFI image ({len(efi)} bytes)")
+          PY
+
+      - name: Package updater and safe-update instructions
+        shell: bash
+        run: |
+          mkdir -p dist/windows-updater
+          cp target/x86_64-pc-windows-msvc/release/stela.exe dist/windows-updater/
+          cat > dist/windows-updater/README-UPDATE.txt <<'EOF'
+          STELA INTEL EDITION — WINDOWS IN-PLACE USB UPDATER
+          
+          This package contains the experimental Intel Xe stela.efi image
+          embedded in the Windows stela.exe application.
+          
+          IMPORTANT: Use this only with a USB that already contains a Stela
+          setup. This is an update, not a new installer creator.
+          
+          SAFEST PROCEDURE
+          1. Back up important files from the USB first.
+          2. Extract this ZIP to a folder on Windows.
+          3. Open PowerShell as Administrator.
+          4. Find the USB's drive letter in File Explorer (example: E:).
+          5. In PowerShell, change to the extracted folder.
+          6. Preview the update first:
+          
+             .\stela.exe --dry-run update E:\
+          
+             Replace E:\ with the USB's actual drive letter.
+          7. Read the complete preview. It must identify the existing Stela
+             setup and must not say it will erase or recreate the USB.
+          8. Only if the preview is correct, run:
+          
+             .\stela.exe update E:\
+          
+          The update command replaces Stela's bootloader and updates the
+          Stela boot files only when required. Do not add --macos: that would
+          request a macOS installer-medium update. The existing macOS
+          installer medium is intended to be preserved by an ordinary
+          "update" command.
+          
+          If the dry run refuses the stick, reports an unknown setup, or
+          reports that the bootloader interface is incompatible, STOP.
+          Do not run create, format, diskpart, or any erase command. Keep the
+          current USB unchanged and provide the exact error message.
+          
+          This is experimental software. Back up the USB before any write.
+          Physical Intel Xe graphics support is not yet verified.
+          EOF
+          (
+            cd dist
+            zip -qr stella-intel-xe-windows-updater.zip windows-updater
+          )
+          unzip -t dist/stella-intel-xe-windows-updater.zip
+          sha256sum dist/stella-intel-xe-windows-updater.zip | tee dist/stella-intel-xe-windows-updater.SHA256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stella-intel-xe-windows-updater
+          path: |
+            dist/stella-intel-xe-windows-updater.zip
+            dist/stella-intel-xe-windows-updater.SHA256
+          if-no-files-found: error
+          retention-days: 30
