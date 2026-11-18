@@ -46,7 +46,7 @@ const CLASS_RAID: [u8; 3] = [0x01, 0x04, 0x00];
 /// Whether `ahci_pci_tbl` binds the function: the AHCI class, an AMD
 /// function of the RAID class, or an Intel controller the table lists by
 /// ID, such as a chipset SATA controller in RAID ("RST") mode, which is
-/// AHCI underneath. Intel VMD is none of these. The table's Dell S140/S150
+/// AHCI underneath, including Tiger Lake UP3/UP4. Intel VMD is none of these. The table's Dell S140/S150
 /// entry matches by subsystem vendor, which these identities do not carry.
 pub fn matches<C>(function: &Function<C>) -> bool {
     matches_identity(&function.identity())
@@ -128,7 +128,7 @@ const INTEL_AHCI: &[u16] = &[
     0x502a, 0x502b, 0x5ae3, 0x8c02, 0x8c03, 0x8c04, 0x8c05, 0x8c06, 0x8c07, 0x8c0e, 0x8c0f, 0x8c82,
     0x8c83, 0x8c84, 0x8c85, 0x8c86, 0x8c87, 0x8c8e, 0x8c8f, 0x8d02, 0x8d04, 0x8d06, 0x8d0e, 0x8d62,
     0x8d64, 0x8d66, 0x8d6e, 0x9c02, 0x9c03, 0x9c04, 0x9c05, 0x9c06, 0x9c07, 0x9c0e, 0x9c0f, 0x9c83,
-    0x9c85, 0x9c87, 0x9c8f, 0x9d03, 0x9d05, 0x9d07, 0x9dd3, 0xa102, 0xa103, 0xa105, 0xa106, 0xa107,
+    0x9c85, 0x9c87, 0x9c8f, 0x9d03, 0x9d05, 0x9d07, 0x9dd3, 0xa102, 0xa0d5, 0xa0d7, 0xa103, 0xa105, 0xa106, 0xa107,
     0xa10f, 0xa182, 0xa186, 0xa1d2, 0xa1d6, 0xa202, 0xa206, 0xa252, 0xa256, 0xa356, 0xa386,
 ];
 /// Linux `ahci_pci_tbl` Intel IDs whose board sets `AHCI_HFLAG_INTEL_PCS_QUIRK`.
@@ -1808,3 +1808,35 @@ impl Disk {
 
 #[cfg(test)]
 mod tests;
+
+
+#[cfg(test)]
+mod tiger_lake_rst_ids {
+    use super::*;
+
+    fn identity(device: u16, class: [u8; 3]) -> crate::bus::pci::Identity {
+        crate::bus::pci::Identity {
+            address: crate::bus::pci::Address {
+                segment: 0,
+                bus: 0,
+                device: 23,
+                function: 0,
+            },
+            vendor: INTEL,
+            device,
+            class,
+        }
+    }
+
+    #[test]
+    fn tiger_lake_ahci_and_rst_modes_are_admitted() {
+        assert!(matches_identity(&identity(0xa0d3, CLASS)));
+        assert!(matches_identity(&identity(0xa0d5, CLASS_RAID)));
+        assert!(matches_identity(&identity(0xa0d7, CLASS_RAID)));
+    }
+
+    #[test]
+    fn unknown_tiger_lake_raid_id_is_not_mistaken_for_ahci() {
+        assert!(!matches_identity(&identity(0xa0d9, CLASS_RAID)));
+    }
+}
