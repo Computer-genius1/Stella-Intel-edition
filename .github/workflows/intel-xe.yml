@@ -278,12 +278,31 @@ jobs:
           This is experimental software. Back up the USB before any write.
           Physical Intel Xe graphics support is not yet verified.
           EOF
-          (
-            cd dist
-            zip -qr stella-intel-xe-windows-updater.zip windows-updater
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+          import hashlib
+
+          root = Path("dist")
+          folder = root / "windows-updater"
+          archive = root / "stella-intel-xe-windows-updater.zip"
+          files = sorted(p for p in folder.rglob("*") if p.is_file())
+          assert files, "Updater package is empty"
+          with ZipFile(archive, "w", compression=ZIP_DEFLATED, compresslevel=9) as z:
+              for path in files:
+                  z.write(path, path.relative_to(root))
+          with ZipFile(archive) as z:
+              bad = z.testzip()
+              assert bad is None, f"Corrupt ZIP member: {bad}"
+              names = set(z.namelist())
+              assert "windows-updater/stela.exe" in names
+              assert "windows-updater/README-UPDATE.txt" in names
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          (root / "stella-intel-xe-windows-updater.SHA256").write_text(
+              f"{digest}  {archive.name}\\n", encoding="ascii"
           )
-          unzip -t dist/stella-intel-xe-windows-updater.zip
-          sha256sum dist/stella-intel-xe-windows-updater.zip | tee dist/stella-intel-xe-windows-updater.SHA256
+          print(f"Verified {archive} ({archive.stat().st_size} bytes), SHA256 {digest}")
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
