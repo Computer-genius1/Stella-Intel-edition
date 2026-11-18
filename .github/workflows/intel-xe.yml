@@ -105,13 +105,30 @@ jobs:
       - name: Boot the Intel Xe UEFI image in QEMU with OVMF
         run: |
           efi=target/boot/x86_64-unknown-uefi/release/stela-deploy.efi
+          # The system-kernel scenario deliberately exits through QEMU's
+          # isa-debug-exit device with IDLE_EXIT=(0x10 << 1) | 1, i.e. 33.
+          # xtask records that status after verifying the guest's serial log.
+          # Accept it only when the structured report says every kernel check passed.
+          set +e
           cargo xtask boot run --image "$efi" --output target/intel-xe-qemu-boot --timeout 120
-          test -s target/intel-xe-qemu-boot/stdout.txt
-          test -s target/intel-xe-qemu-boot/stderr.txt
+          qemu_status=$?
+          set -e
+          test "$qemu_status" -eq 33
+          test -s target/intel-xe-qemu-boot/serial.txt
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("target/intel-xe-qemu-boot/run.json").read_text())
+          assert report["scenario"] == {"passed": True}, report.get("scenario")
+          assert report["qemu_returncode"] == 33, report.get("qemu_returncode")
+          assert report["returncode"] == 33, report.get("returncode")
+          assert report["timed_out"] is False, report.get("timed_out")
+          PY
           {
             echo "### QEMU UEFI boot test"
             echo
             echo "- Intel Xe UEFI image launched through OVMF: yes"
+            echo "- System-kernel scenario: passed (expected QEMU debug-exit status 33)"
             echo "- This checks UEFI boot flow in emulation only; QEMU does not emulate the target Intel Xe GPU."
           } >> "$GITHUB_STEP_SUMMARY"
 
