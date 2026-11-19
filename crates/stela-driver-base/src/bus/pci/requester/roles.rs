@@ -78,7 +78,9 @@ impl Inventory {
         // each PF's VFs must be known for the functions it does not reach.
         for &address in &inventory.present {
             match function(address, &mut read32) {
-                Err(Issue::Config { error, .. }) => return Err(error),
+                // A configuration read failure leaves this function's role
+                // unknown, but the issue already carries the requester scope
+                // it can affect. Keep classifying independent links.
                 Err(issue) => inventory.issues.push(issue),
                 Ok(None) => {}
                 Ok(Some(vfs)) => {
@@ -450,30 +452,36 @@ mod tests {
         .unwrap()
     }
     #[test]
-    fn transport_denial_aborts_without_absence_or_a_physical_role() {
+    fn a_transport_denial_on_one_pf_only_refuses_its_link() {
         use crate::bus::pci::{ConfigError, ConfigFailure, assignment};
-        let words = pf(2, 8, 1);
-        let mut accesses = 0;
-        Inventory::capture(&[PF], |_, offset| {
-            accesses += 1;
-            Ok(Some(words[usize::from(offset) / 4]))
+        let micron = at(0, 0x3c00);
+        let sibling = at(0, 0x3c01);
+        let gpu = at(0, 0x0100);
+        let bridge = bridge(8, 0x3c, 0x3c);
+        let spaces = BTreeMap::from([
+            (bridge.address, plain()),
+            (micron, pf(2, 8, 1)),
+            (sibling, plain()),
+            (gpu, plain()),
+        ]);
+        let functions: Vec<_> = spaces.keys().copied().collect();
+        let denied =
+            ConfigError::before_effect(ConfigFailure::Ownership(assignment::Error::Closed));
+        let inventory = Inventory::capture(&functions, |address, offset| {
+            if address == micron && offset == 0x100 {
+                Err(denied)
+            } else {
+                Ok(spaces
+                    .get(&address)
+                    .map(|words| words[usize::from(offset) / 4]))
+            }
         })
         .unwrap();
-        for fault in 1..=accesses {
-            let mut observed = 0;
-            let denied =
-                ConfigError::before_effect(ConfigFailure::Ownership(assignment::Error::Closed));
-            let result = Inventory::capture(&[PF], |_, offset| {
-                observed += 1;
-                if observed == fault {
-                    Err(denied)
-                } else {
-                    Ok(Some(words[usize::from(offset) / 4]))
-                }
-            });
-            assert_eq!(result.err(), Some(denied));
-            assert_eq!(observed, fault, "no read after denied original permission");
-        }
+
+        assert!(!inventory.issues().is_empty());
+        assert_eq!(inventory.role(micron, &[bridge]), FunctionRole::Unverified);
+        assert_eq!(inventory.role(sibling, &[bridge]), FunctionRole::Unverified);
+        assert_eq!(inventory.role(gpu, &[bridge]), FunctionRole::Physical);
     }
     #[test]
     fn vfs_without_local_capabilities_are_classified_from_their_pf_across_a_bus_boundary() {
