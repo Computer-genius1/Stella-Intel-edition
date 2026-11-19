@@ -265,8 +265,12 @@ impl<'a> ContainedPci<'a> {
                 // would conflict with the assignment we deliberately retain.
                 // Its immutable header was captured before the refusal; it
                 // stays undriven and is never promoted to a native driver.
-                slot.refusal.as_ref().filter(|refusal| refusal.master_stopped)
-                    .filter(|_| matches!(census::layout(slot.header.layout), census::Layout::Endpoint))
+                slot.refusal
+                    .as_ref()
+                    .filter(|refusal| refusal.master_stopped)
+                    .filter(|_| {
+                        matches!(census::layout(slot.header.layout), census::Layout::Endpoint)
+                    })
                     .and_then(|_| slot.header.word(offset))
             };
             if let Some(value) = cached {
