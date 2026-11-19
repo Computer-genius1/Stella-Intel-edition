@@ -232,7 +232,7 @@ impl<'a> ContainedPci<'a> {
             if !core::ptr::eq(self.source, reader.source) {
                 return Err(Error::InvalidPlatformReply);
             }
-            {
+            let cached = {
                 let cohort = self.source.pci_slots.0.borrow();
                 let Cohort::Parked(fabric) = &*cohort else {
                     return Err(Error::Unavailable);
@@ -240,6 +240,22 @@ impl<'a> ContainedPci<'a> {
                 if fabric.left_out.holds(address) {
                     return Ok(None);
                 }
+                let index = fabric
+                    .slots
+                    .binary_search_by_key(&address, |slot| slot.address)
+                    .map_err(|_| Error::OutsideResource)?;
+                let slot = &fabric.slots[index];
+                // A refused endpoint keeps its original 4 KiB configuration
+                // assignment. Reopening that same page for the fabric census
+                // would conflict with the assignment we deliberately retain.
+                // Its immutable header was captured before the refusal; it
+                // stays undriven and is never promoted to a native driver.
+                slot.refusal.as_ref().filter(|refusal| refusal.master_stopped)
+                    .filter(|_| matches!(census::layout(slot.header.layout), census::Layout::Endpoint))
+                    .and_then(|_| slot.header.word(offset))
+            };
+            if let Some(value) = cached {
+                return Ok(Some(value));
             }
             let value = reader.read32(address, offset)?;
             if offset != 0 || value as u16 != u16::MAX {
@@ -547,9 +563,16 @@ impl Slot {
         &self,
         mut read: impl FnMut(u16, u8) -> Result<u32, ConfigError>,
     ) -> Result<(), ContainmentError> {
-        // A refused function is never driven. Its stop was judged when it
-        // was refused (see `unstopped_master`); only its place is rechecked.
-        if self.refusal.is_some() {
+        // A refused endpoint is never driven. If its Bus Master bit was
+        // proven clear, its original configuration assignment remains held;
+        // do not remap that same page just to verify its cached header again.
+        // Refused bridges still need a live routing/header check.
+        if let Some(refusal) = &self.refusal {
+            if refusal.master_stopped
+                && matches!(census::layout(self.header.layout), census::Layout::Endpoint)
+            {
+                return Ok(());
+            }
             return self
                 .header
                 .verify(|offset| read(offset, 4))
