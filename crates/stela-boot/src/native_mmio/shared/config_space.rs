@@ -232,7 +232,6 @@ impl Drop for ConfigScope {
 /// page is withdrawn and acknowledged before a different function is admitted.
 pub(crate) struct ConfigInventory<'a> {
     source: &'a Source,
-    windows: &'a [EcamWindow],
     geometry: EcamInventory<'a>,
     mapped: Option<(Address, ConfigScope)>,
 }
@@ -361,7 +360,6 @@ impl Source {
         }
         let mut reader = ConfigInventory {
             source: self,
-            windows: &windows,
             geometry,
             mapped: None,
         };
