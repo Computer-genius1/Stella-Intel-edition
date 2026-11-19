@@ -196,6 +196,21 @@ impl<'a> ContainedPci<'a> {
         Ok(apart)
     }
 
+    /// The identity captured before containment. It remains available for
+    /// refused endpoints whose original configuration page is intentionally
+    /// retained and therefore cannot be mapped a second time.
+    pub(crate) fn identity(&self, address: Address) -> Result<u32, Error> {
+        let cohort = self.source.pci_slots.0.borrow();
+        let Cohort::Parked(fabric) = &*cohort else {
+            return Err(Error::Unavailable);
+        };
+        let index = fabric
+            .slots
+            .binary_search_by_key(&address, |slot| slot.address)
+            .map_err(|_| Error::OutsideResource)?;
+        Ok(fabric.slots[index].header.identity)
+    }
+
     pub(crate) fn check_observation(
         &self,
         address: Address,
