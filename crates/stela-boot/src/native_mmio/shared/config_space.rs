@@ -228,13 +228,13 @@ impl Drop for ConfigScope {
     }
 }
 
-/// The original source lends a read-only bus at a time. A mapped bus is
-/// withdrawn and acknowledged before a different bus is admitted.
+/// The original source lends one read-only function page at a time. A mapped
+/// page is withdrawn and acknowledged before a different function is admitted.
 pub(crate) struct ConfigInventory<'a> {
     source: &'a Source,
     windows: &'a [EcamWindow],
     geometry: EcamInventory<'a>,
-    mapped: Option<((u16, u8), ConfigScope)>,
+    mapped: Option<(Address, ConfigScope)>,
 }
 
 impl ConfigInventory<'_> {
@@ -252,36 +252,23 @@ impl ConfigInventory<'_> {
         {
             return Err(Error::InvalidRange);
         }
-        let key = (address.segment, address.bus);
         if !self
             .mapped
             .as_ref()
-            .is_some_and(|(current, _)| *current == key)
+            .is_some_and(|(current, _)| *current == address)
         {
             self.withdraw()?;
-            let index = self
-                .windows
-                .iter()
-                .position(|window| {
-                    window.segment == address.segment
-                        && (window.start_bus..=window.end_bus).contains(&address.bus)
-                })
-                .ok_or(Error::OutsideResource)?;
-            let (_, span) = self.geometry.subset(
-                index,
-                address.bus..=address.bus,
-                self.source.platform.wire().roots(),
-            )?;
-            // SAFETY: the caller owns the original complete captured buses.
-            // Only this bounded read observes the newly mapped bus.
+            let (_, span) = self
+                .geometry
+                .function(address, self.source.platform.wire().roots())?;
+            // SAFETY: the caller owns this original function's captured
+            // configuration extent. Mapping only its 4 KiB page avoids
+            // colliding with another refused function's retained page.
             let scope = unsafe { ConfigScope::open(self.source, span) }?;
-            self.mapped = Some((key, scope));
+            self.mapped = Some((address, scope));
         }
-        let (_, scope) = self.mapped.as_ref().expect("current read-only bus");
-        let offset = (usize::from(address.device) << 15)
-            | (usize::from(address.function) << 12)
-            | usize::from(offset);
-        scope.read(offset, width)
+        let (_, scope) = self.mapped.as_ref().expect("current read-only function");
+        scope.read(usize::from(offset), width)
     }
 
     /// Check a bridge's buses against its root grant, the ECAM windows and
