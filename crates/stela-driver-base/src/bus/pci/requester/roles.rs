@@ -78,6 +78,21 @@ impl Inventory {
         // each PF's VFs must be known for the functions it does not reach.
         for &address in &inventory.present {
             match function(address, &mut read32) {
+                // A resource conflict can be local to a refused endpoint
+                // whose original configuration page is still held. Its role
+                // remains unknown, but independent links can still be checked.
+                Err(issue @ Issue::Config { error, .. })
+                    if matches!(
+                        error.reason,
+                        crate::bus::pci::ConfigFailure::Mapping(
+                            crate::bus::mmio::owned::Error::ResourceConflict
+                        )
+                    ) =>
+                {
+                    inventory.issues.push(issue)
+                }
+                // Other transport/ownership failures still invalidate the
+                // census: they are not evidence of a local resource conflict.
                 Err(Issue::Config { error, .. }) => return Err(error),
                 Err(issue) => inventory.issues.push(issue),
                 Ok(None) => {}
@@ -474,6 +489,40 @@ mod tests {
             assert_eq!(result.err(), Some(denied));
             assert_eq!(observed, fault, "no read after denied original permission");
         }
+    }
+
+    #[test]
+    fn a_resource_conflict_on_one_pf_only_refuses_its_link() {
+        use crate::bus::pci::{ConfigError, ConfigFailure};
+        let micron = at(0, 0x3c00);
+        let sibling = at(0, 0x3c01);
+        let gpu = at(0, 0x0100);
+        let bridge = bridge(8, 0x3c, 0x3c);
+        let spaces = BTreeMap::from([
+            (bridge.address, plain()),
+            (micron, pf(2, 8, 1)),
+            (sibling, plain()),
+            (gpu, plain()),
+        ]);
+        let functions: Vec<_> = spaces.keys().copied().collect();
+        let conflict = ConfigError::before_effect(ConfigFailure::Mapping(
+            crate::bus::mmio::owned::Error::ResourceConflict,
+        ));
+        let inventory = Inventory::capture(&functions, |address, offset| {
+            if address == micron && offset == 0x100 {
+                Err(conflict)
+            } else {
+                Ok(spaces
+                    .get(&address)
+                    .map(|words| words[usize::from(offset) / 4]))
+            }
+        })
+        .unwrap();
+
+        assert!(!inventory.issues().is_empty());
+        assert_eq!(inventory.role(micron, &[bridge]), FunctionRole::Unverified);
+        assert_eq!(inventory.role(sibling, &[bridge]), FunctionRole::Unverified);
+        assert_eq!(inventory.role(gpu, &[bridge]), FunctionRole::Physical);
     }
     #[test]
     fn vfs_without_local_capabilities_are_classified_from_their_pf_across_a_bus_boundary() {
