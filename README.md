@@ -1,14 +1,14 @@
 <h1 align="center">
   <img src="assets/stela-icon.png" alt="" width="96"><br>
-  Stela
+  Stella
 </h1>
 
-A translation-based Apple Silicon layer for x86-64 PCs. It is a UEFI boot
+An independent translation-based Apple Silicon layer for x86-64 PCs. It is a UEFI boot
 program with an arm64-to-x86-64 translator, a Metal driver for NVIDIA GPUs and
-a model of Apple silicon hardware. Stela currently presents itself as an M2 Mac mini.
+a model of Apple silicon hardware. Stella currently presents itself as an M2 Mac mini.
 
 > [!WARNING]
-Stela is still in development. It is slow and still may not boot on supported hardware. Fixes are on the way, please submit a GitHub Issue with your boot logs if you encounter an error!
+Stella is still in development. It is slow and still may not boot on supported hardware. Fixes are on the way, please submit a GitHub Issue with your boot logs if you encounter an error!
 
 ## Translator
 
@@ -23,7 +23,7 @@ and supports the Metal3 and Apple7 GPU families.
 
 ## Intel graphics (experimental)
 
-Stella Intel Edition carries an experimental Intel Xe kernel/display-driver
+Stella includes an experimental Intel Xe kernel/display-driver
 port and an optional ANV Vulkan backend. The first bring-up target is Intel Xe
 integrated graphics on Tiger Lake (11th-generation Core systems) and newer,
 subject to the exact GPU PCI device ID being present in xe's supported-device
@@ -59,7 +59,7 @@ containing data you need; test from a spare USB device.
 ## Install
 
 1. Download `stela` from the
-   [releases page](https://github.com/tylertms/Stela/releases).
+   [releases page](https://github.com/tylertms/Stella/releases).
 2. Run `sudo ./stela` (Linux, macOS) or double-click `stela.exe`
    (Windows).
 3. Choose the USB stick and the installer, then confirm. This erases the USB
@@ -82,7 +82,7 @@ On Windows, open Terminal with Run as administrator and run:
 
 ## Logs
 
-If Stela does not work, plug the USB stick into the computer that made it and
+If Stella does not work, plug the USB stick into the computer that made it and
 save the boot log. Include `log.txt` in your GitHub Issue.
 
 ```sh
@@ -102,8 +102,8 @@ You need [Rust](https://rustup.rs), git, Python 3.10 or newer, and LLVM 21,
 newer also works.
 
 ```sh
-git clone https://github.com/tylertms/Stela
-cd Stela
+git clone https://github.com/tylertms/Stella
+cd Stella
 cargo xtask dist
 ```
 
@@ -112,10 +112,10 @@ Linux, Mesa and LLVM sources and takes a long time.
 
 ## Legal
 
-Stela contains no Apple software. You are responsible for following Apple's
+Stella contains no Apple software. You are responsible for following Apple's
 software license agreement and terms of use.
 
-Stela's code is GPL-2.0-or-later. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Stella's code is GPL-2.0-or-later. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Community
 
