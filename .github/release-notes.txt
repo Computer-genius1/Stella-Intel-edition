@@ -8,7 +8,7 @@ Make a new stick (this erases it):
 sudo ./stela
 ```
 
-Update an existing Stela stick to v@VERSION@:
+Update an existing Stella stick to v@VERSION@:
 
 ```
 sudo ./stela update
@@ -28,7 +28,7 @@ Then boot the PC from the stick.
 
 ## Boot log
 
-If Stela does not work, save the boot log and include `log.txt` in your report:
+If Stella does not work, save the boot log and include `log.txt` in your report:
 
 ```
 sudo ./stela log --output log.txt
