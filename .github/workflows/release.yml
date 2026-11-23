@@ -1,6 +1,6 @@
 # One self-contained `stela` per platform. `stela` embeds stela.efi, which
-# carries the StelaGPU kext; the kext carries the Metal bundle and Stela.app.
-# So the chain runs: Stela.app (macOS) -> stela.efi (Linux) -> stela for
+# carries the StellaGPU kext; the kext carries the Metal bundle and Stella.app.
+# So the chain runs: Stella.app (macOS) -> stela.efi (Linux) -> stela for
 # Linux, Windows and macOS -> release.
 #
 # Runs only for a pushed `v*` tag, and publishes that tag's release.
@@ -25,7 +25,7 @@ defaults:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
-  # Stela.app's sources, with their build.sh.
+  # Stella.app's sources, with their build.sh.
   APP: guest/stela-app
   # The release body and each archive's INSTALL.txt:
   # plain text that also reads as Markdown, with @VERSION@ for the version.
@@ -67,19 +67,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build Stela.app
+      - name: Build Stella.app
         run: |
           swift --version
           # build.sh prints the bundle's path last.
           app="$(bash "$APP/build.sh" | tee /dev/stderr | tail -1)"
           [[ -f "$app/Contents/Info.plist" ]] || { echo "::error::$APP/build.sh named no app bundle: $app"; exit 1; }
           # tar keeps the bundle's modes and code signature byte for byte.
-          tar -C "$(dirname "$app")" -cf Stela.app.tar Stela.app
+          tar -C "$(dirname "$app")" -cf Stella.app.tar Stella.app
 
       - uses: actions/upload-artifact@v4
         with:
           name: stela-app
-          path: Stela.app.tar
+          path: Stella.app.tar
           if-no-files-found: error
           retention-days: 7
 
@@ -166,10 +166,10 @@ jobs:
           name: stela-app
           path: app
 
-      - name: Unpack Stela.app
+      - name: Unpack Stella.app
         run: |
-          tar -C app -xf app/Stela.app.tar
-          echo "STELA_APP=$PWD/app/Stela.app" >> "$GITHUB_ENV"
+          tar -C app -xf app/Stella.app.tar
+          echo "STELA_APP=$PWD/app/Stella.app" >> "$GITHUB_ENV"
 
       - name: Fetch upstream sources
         run: cargo xtask gpu fetch
@@ -400,6 +400,6 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" dist/* \
               --verify-tag \
-              --title "Stela $GITHUB_REF_NAME" \
+              --title "Stella $GITHUB_REF_NAME" \
               --notes-file notes.txt
           fi
