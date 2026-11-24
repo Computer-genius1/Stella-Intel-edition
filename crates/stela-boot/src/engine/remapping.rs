@@ -312,8 +312,7 @@ impl Remappers {
                     .try_reserve_exact(functions.len())
                     .map_err(|_| MappingError::Exhausted)?;
                 for &address in &functions {
-                    let value = reader.read32(address, 0)?;
-                    pci.check_observation(address, 0, value)?;
+                    let value = pci.identity(address)?;
                     identities.push((address, (value as u16, (value >> 16) as u16)));
                 }
                 let roles = roles::Inventory::capture(&functions, |address, offset| {
